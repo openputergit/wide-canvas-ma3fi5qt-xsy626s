@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget Planning System</title>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+        
+        .custom-input::-webkit-outer-spin-button,
+        .custom-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="loading" id="loadingSpinner">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">Budget Planning System</h1>
+
+        <!-- Search Section -->
+        <div class="mb-8 max-w-md mx-auto">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4">Search Budget Plan</h2>
+                <div class="flex gap-2">
+                    <input type="text" id="searchCode" placeholder="Enter Unique Code" class="flex-1 border rounded-lg px-4 py-2">
+                    <button onclick="searchBudget()" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600">
+                        Search
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Budget Form -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Budget Submission Form</h2>
+            
+            <form id="budgetForm" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Department Head (HOD)</label>
+                        <select id="hodName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                            <option value="">Select HOD</option>
+                            <option value="HOD1">HOD - Computer Science</option>
+                            <option value="HOD2">HOD - Electronics</option>
+                            <option value="HOD3">HOD - Mechanical</option>
+                            <option value="HOD4">HOD - Civil</option>
+                            <option value="HOD5">HOD - Electrical</option>
+                            <option value="HOD6">HOD - Chemical</option>
+                            <option value="HOD7">HOD - Physics</option>
+                            <option value="HOD8">HOD - Mathematics</option>
+                            <option value="HOD9">HOD - Chemistry</option>
+                            <option value="HOD10">HOD - Biology</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="budget-years space-y-6">
+                    <h3 class="text-lg font-medium">5-Year Budget Plan</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Year 2024</label>
+                            <input type="number" name="year2024" class="custom-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Year 2025</label>
+                            <input type="number" name="year2025" class="custom-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Year 2026</label>
+                            <input type="number" name="year2026" class="custom-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Year 2027</label>
+                            <input type="number" name="year2027" class="custom-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Year 2028</label>
+                            <input type="number" name="year2028" class="custom-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button type="submit" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600">
+                        Submit Budget
+                    </button>
+                    <button type="button" onclick="downloadExcel()" class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600">
+                        Download Excel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // MongoDB app slug for this application
+        const APP_SLUG = 'budget-planner-123456';
+        
+        // Show/Hide loading spinner
+        function toggleLoading(show) {
+            document.getElementById('loadingSpinner').style.display = show ? 'block' : 'none';
+        }
+
+        // Generate unique code
+        function generateUniqueCode() {
+            return 'BUD-' + Date.now().toString(36).toUpperCase();
+        }
+
+        // Submit budget form
+        document.getElementById('budgetForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            toggleLoading(true);
+
+            const formData = {
+                hodName: document.getElementById('hodName').value,
+                uniqueCode: generateUniqueCode(),
+                year2024: document.querySelector('input[name="year2024"]').value,
+                year2025: document.querySelector('input[name="year2025"]').value,
+                year2026: document.querySelector('input[name="year2026"]').value,
+                year2027: document.querySelector('input[name="year2027"]').value,
+                year2028: document.querySelector('input[name="year2028"]').value,
+                submissionDate: new Date().toISOString()
+            };
+
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer cU3Bpb1ZjoVRFUrn9lCXbEM8cHm1',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'create',
+                        collection: 'budgets',
+                        data: formData
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert(`Budget submitted successfully!\nYour unique code is: ${formData.uniqueCode}`);
+                    e.target.reset();
+                } else {
+                    alert('Error submitting budget. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error submitting budget. Please try again.');
+            } finally {
+                toggleLoading(false);
+            }
+        });
+
+        // Search budget by unique code
+        async function searchBudget() {
+            const searchCode = document.getElementById('searchCode').value;
+            if (!searchCode) {
+                alert('Please enter a unique code');
+                return;
+            }
+
+            toggleLoading(true);
+
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer cU3Bpb1ZjoVRFUrn9lCXbEM8cHm1',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'read',
+                        collection: 'budgets',
+                        conditions: {
+                            uniqueCode: searchCode
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success && data.result.length > 0) {
+                    const budget = data.result[0];
+                    document.getElementById('hodName').value = budget.hodName;
+                    document.querySelector('input[name="year2024"]').value = budget.year2024;
+                    document.querySelector('input[name="year2025"]').value = budget.year2025;
+                    document.querySelector('input[name="year2026"]').value = budget.year2026;
+                    document.querySelector('input[name="year2027"]').value = budget.year2027;
+                    document.querySelector('input[name="year2028"]').value = budget.year2028;
+                } else {
+                    alert('No budget found with this code');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error searching budget. Please try again.');
+            } finally {
+                toggleLoading(false);
+            }
+        }
+
+        // Download Excel function
+        function downloadExcel() {
+            const hodName = document.getElementById('hodName').value;
+            if (!hodName) {
+                alert('Please select a HOD first');
+                return;
+            }
+
+            const budgetData = {
+                HOD: hodName,
+                'Year 2024': document.querySelector('input[name="year2024"]').value || 0,
+                'Year 2025': document.querySelector('input[name="year2025"]').value || 0,
+                'Year 2026': document.querySelector('input[name="year2026"]').value || 0,
+                'Year 2027': document.querySelector('input[name="year2027"]').value || 0,
+                'Year 2028': document.querySelector('input[name="year2028"]').value || 0
+            };
+
+            const ws = XLSX.utils.json_to_sheet([budgetData]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Budget Plan");
+            XLSX.writeFile(wb, `${hodName}_budget_plan.xlsx`);
+        }
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
